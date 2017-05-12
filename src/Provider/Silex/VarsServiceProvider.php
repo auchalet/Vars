@@ -9,7 +9,7 @@
  * file that was distributed with this source code.
  *
  * @package     m1/vars
- * @version     1.1.0
+ * @version     0.3.0
  * @author      Miles Croxford <hello@milescroxford.com>
  * @copyright   Copyright (c) Miles Croxford <hello@milescroxford.com>
  * @license     http://github.com/m1/vars/blob/master/LICENSE
@@ -18,8 +18,8 @@
 
 namespace M1\Vars\Provider\Silex;
 
-use Silex\Application;
-use Silex\ServiceProviderInterface;
+use Pimple\Container;
+use Pimple\ServiceProviderInterface;
 use M1\Vars\Vars;
 
 /**
@@ -46,8 +46,7 @@ class VarsServiceProvider implements ServiceProviderInterface
         'cache_path',
         'cache_expire',
         'loaders',
-        'replacements',
-        'merge_globals',
+        'variables'
     );
 
     /**
@@ -63,55 +62,36 @@ class VarsServiceProvider implements ServiceProviderInterface
     /**
      * Registers the service provider, sets the user defined options and returns the vars instance
      *
-     * @param \Silex\Application $app The silex app
+     * @param \Pimple\Container $container The pimple container
      */
-    public function register(Application $app)
+    public function register(Container $container)
     {
-        $app['vars'] = function ($app) {
-            return new Vars($this->entity, $this->createOptions($app));
+        $container['vars'] = function ($container) {
+            return new Vars($this->entity, $this->createOptions($container));
         };
-
-        $app['vars.merge'] = $app->protect(function () use ($app) {
-            static $initialized = false;
-            if ($initialized) {
-                return;
-            }
-            $initialized = true;
-
-            foreach ($app['vars']->getGlobals() as $key => $value) {
-                $app[$key] = $value;
-            }
-
-            foreach ($app['vars']->toDots(false) as $key => $value) {
-                $app['vars.'.$key] = $value;
-            }
-        });
     }
 
     /**
      * Creates the defined options into a way that Vars can use
      *
-     * @param \Silex\Application $app The silex app
+     * @param \Pimple\Container $container The pimple container
      *
      * @return array The created options
      */
-    private function createOptions($app)
+    private function createOptions($container)
     {
         $options = array();
 
-        if (isset($app['vars.path'])) {
-            $options['path'] = $app['vars.path'];
+        if (isset($container['vars.path'])) {
+            $options['path'] = $container['vars.path'];
         }
 
-        if (isset($app['vars.options'])) {
-            $options = $this->createKeyedOptions($options, $app['vars.options']);
+        if (isset($container['vars.options'])) {
+            $options = $this->createKeyedOptions($options, $container['vars.options']);
+
         }
 
-        if (!isset($options['merge_globals']) || is_null($options['merge_globals'])) {
-            $options['merge_globals'] = false;
-        }
-
-        if (isset($app['debug']) && $app['debug']) {
+        if (isset($container['debug']) && $container['debug']) {
             $options['cache'] = false;
         }
 
@@ -133,16 +113,5 @@ class VarsServiceProvider implements ServiceProviderInterface
         }
 
         return $options;
-    }
-
-    /**
-     * The silex service provider boot function
-     *
-     * @param \Silex\Application $app The silex app
-     *
-     * @codeCoverageIgnore
-     */
-    public function boot(Application $app)
-    {
     }
 }
